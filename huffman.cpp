@@ -3,8 +3,7 @@
 #include <string>
 #include <vector>
 #include <queue>
-#include <map>
-#define BUFF_SIZE 2000
+#define BUFF_SIZE 20000
 using namespace std;
 //Huffman tree node
 struct Huff
@@ -22,21 +21,26 @@ struct Huff_D
 //Append HuffTree to Standard I/O, and get codemap[source]=huffcode
 void OutputHuffTree(ostream &out, Huff *root, vector<bool> &path, vector<vector<bool>> &codemap)
 {
-    if (!root->lchild && !root->rchild) //leaf node
+    if (!root->lchild and !root->rchild) //leaf node
     {
         codemap[root->code] = path;
-        out << path.size();
+        out << char(path.size());
         char code = 0;
-        for (int i = 0; i < path.size(); ++i)
+        int ind = 0;
+        for (bool c : path)
         {
-            if (!i % 8)
+            code = (code << 1) + c;
+            ++ind;
+            if (ind == 8)
             {
+                ind = 0;
                 out << code;
                 code = 0;
             }
-            code = code << 1 + path[i];
         }
-        out << code << root->code;
+        if (ind)
+            out << code;
+        out << root->code;
     }
     if (root->lchild)
     {
@@ -47,7 +51,7 @@ void OutputHuffTree(ostream &out, Huff *root, vector<bool> &path, vector<vector<
     if (root->rchild)
     {
         path.push_back(1);
-        OutputHuffTree(out, root->lchild, path, codemap);
+        OutputHuffTree(out, root->rchild, path, codemap);
         path.pop_back();
     }
 }
@@ -72,23 +76,23 @@ int main(int argc, char **argv)
         OutFilePath = InFilePath + ".huff";
         break;
     case 3: //huff -u/z infile
-        if (argv[1][0] != ' ')
+        if (argv[1][0] != '-')
             Throw("No Option Specified");
-        if (argv[1] == "-u")
+        if (argv[1][1] == 'u')
             WorkMode = 1;
-        else if (argv[1] == "-z")
+        else if (argv[1][1] == 'z')
             WorkMode = 0;
         else
             Throw("Cannot Read Augments");
         InFilePath = argv[2];
-        OutFilePath = InFilePath + argv[1] == "-z" ? ".huff" : ".src";
+        OutFilePath = InFilePath + ((argv[1][1] == 'z') ? ".huff" : ".src");
         break;
     case 4: //huff -ur/zr infile outfile
         if (argv[1][0] != '-')
             Throw("No Option Specified");
-        if (argv[1] == "-ur" or argv[1] == "-ru")
+        if ((argv[1][1] == 'u' and argv[1][2] == 'r') or (argv[1][1] == 'r' and argv[1][2] == 'u'))
             WorkMode = 1;
-        else if (argv[1] == "-zr" or argv[1] == "-rz")
+        else if ((argv[1][1] == 'z' and argv[1][2] == 'r') or (argv[1][1] == 'r' and argv[1][2] == 'z'))
             WorkMode = 0;
         else
             Throw("Cannot Read Augments");
@@ -107,22 +111,23 @@ int main(int argc, char **argv)
         if (!in)
             Throw("Cannot Open File");
         in.seekg(0, in.end);
-        size_t FileSize = in.tellg();
+        const size_t FileSize = in.tellg();
         in.seekg(0, in.beg);
-        char *buffer = new char[FileSize];
-        in.read(buffer, FileSize);
         if (!in)
             Throw("Cannot Read File to Memory");
         //count occurance
-        size_t Times[256];
-        for (int i = 0; i < 256; ++i)
-            Times[i] = 0;
+        char *buffer = new char[BUFF_SIZE]();
+        size_t *Times = new size_t[256]();
         for (size_t i = 0; i < FileSize; ++i)
-            Times[buffer[i]]++;
+        {
+            if (!i % BUFF_SIZE) //read new buffer block
+                in.read(buffer, FileSize - i < BUFF_SIZE ? FileSize % BUFF_SIZE : BUFF_SIZE);
+            Times[buffer[i % BUFF_SIZE]]++;
+        }
         //construct huffman tree
         struct cmp //use ascending priority queue
         {
-            bool operator()(const Huff *n1, const Huff *n2) { return n1->weight < n2->weight; }
+            bool operator()(const Huff *n1, const Huff *n2) { return n1->weight > n2->weight; }
         };
         priority_queue<Huff *, vector<Huff *>, cmp> NodeList;
         for (int i = 0; i < 256; ++i)
@@ -133,6 +138,8 @@ int main(int argc, char **argv)
                 p->code = i;
                 NodeList.push(p);
             }
+        ofstream out(OutFilePath, ios::out | ios::binary);
+        out << char(NodeList.size()); //output treesize to head part
         while (NodeList.size() > 1)
         {
             Huff *p, *t;
@@ -148,25 +155,34 @@ int main(int argc, char **argv)
         }
         Huff *root = NodeList.top();
         //output huffman tree
-        char hufflen = 0, treesize = 0;
+        char hufflen = 0;
         vector<vector<bool>> codemap;
         vector<bool> path;
         codemap.resize(256);
-        ofstream out(OutFilePath, ios::out | ios::binary | ios::app);
         if (!out)
             Throw("Cannot Open Output File");
         OutputHuffTree(out, root, path, codemap);
         //output compressed bitstream
-        char *outputbuffer = new char[FileSize];
         size_t bilen = 0;
+        char *outputbuffer = new char [BUFF_SIZE]();
+        in.seekg(0,in.beg); //move pointer to file head
         for (size_t i = 0; i < FileSize; ++i)
-            for (char j = 0; j < codemap[buffer[i]].size(); ++j, ++bilen)
-                outputbuffer[bilen / 8] = outputbuffer[bilen / 8] << 1 + codemap[buffer[i]][j];
-        if (bilen % 8) //align to block(8 bit)
-            outputbuffer[bilen / 8] <<= (8 - bilen % 8);
-        //output margin
-        out.seekp(0, out.beg);
-        cout << 8 - bilen % 8;
+        {
+            if (!i % BUFF_SIZE) //read new buffer block
+                in.read(buffer, FileSize - i < BUFF_SIZE ? FileSize % BUFF_SIZE : BUFF_SIZE);
+            for(bool c:codemap[buffer[i]])
+            {
+                outputbuffer[(bilen/8)%BUFF_SIZE]<<=1;
+                outputbuffer[(bilen/8)%BUFF_SIZE]+=c;
+                ++bilen;
+                if(!bilen%(8*BUFF_SIZE) and bilen)
+                    out.write(outputbuffer, BUFF_SIZE);
+            }
+            if(i==FileSize-1 and bilen%(8*BUFF_SIZE))
+                out.write(outputbuffer, (bilen/8)%BUFF_SIZE);
+        }
+        //output align len & tree size
+        out << char(8 - bilen % 8);
     }
     else //decompress mode
     {
@@ -177,7 +193,7 @@ int main(int argc, char **argv)
         in.seekg(0, in.end);
         size_t FileSize = in.tellg();
         in.seekg(0, in.beg);
-        char *buffer = new char[FileSize];
+        char *buffer = new char[FileSize]();
         in.read(buffer, FileSize);
         //read and create huffman tree
         const char margin = buffer[0], treesize = buffer[1];
@@ -209,7 +225,7 @@ int main(int argc, char **argv)
         //read compressed data, uncompress and put to file
         t = root;
         char *outputbuffer = new char[BUFF_SIZE], codepos = 7;
-        ofstream out(OutFilePath, ios::out | ios::binary | ios::app);
+        ofstream out(OutFilePath, ios::out | ios::binary);
         size_t bufferpos = 0;
         while (p < FileSize)
         {
