@@ -179,7 +179,7 @@ int main(int argc, char **argv)
                     out.write(outputbuffer, BUFF_SIZE);
             }
             if(i==FileSize-1 and bilen%(8*BUFF_SIZE))
-                out.write(outputbuffer, (bilen/8)%BUFF_SIZE);
+                out.write(outputbuffer, bilen%(8*BUFF_SIZE));
         }
         //output align len & tree size
         out << char(8 - bilen % 8);
