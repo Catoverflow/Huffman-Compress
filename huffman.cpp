@@ -4,6 +4,7 @@
 #include <vector>
 #include <queue>
 #include <map>
+#define BUFF_SIZE 2000
 using namespace std;
 //Huffman tree node
 struct Huff
@@ -11,6 +12,12 @@ struct Huff
     size_t weight{0};
     char code;
     Huff *lchild{nullptr}, *rchild{nullptr};
+};
+//Huffman tree node for decoding
+struct Huff_D
+{
+    Huff_D *lchild{nullptr}, *rchild{nullptr};
+    char code;
 };
 //Append HuffTree to Standard I/O, and get codemap[source]=huffcode
 void OutputHuffTree(ostream &out, Huff *root, vector<bool> &path, vector<vector<bool>> &codemap)
@@ -74,7 +81,7 @@ int main(int argc, char **argv)
         else
             Throw("Cannot Read Augments");
         InFilePath = argv[2];
-        OutFilePath = InFilePath + ".huff";
+        OutFilePath = InFilePath + argv[1] == "-z" ? ".huff" : ".src";
         break;
     case 4: //huff -ur/zr infile outfile
         if (argv[1][0] != '-')
@@ -153,24 +160,95 @@ int main(int argc, char **argv)
         char *outputbuffer = new char[FileSize];
         size_t bilen = 0;
         for (size_t i = 0; i < FileSize; ++i)
-            for (char j=0;j<codemap[buffer[i]].size();++j,++bilen)
-                outputbuffer[bilen/8]=outputbuffer[bilen/8]<<1+codemap[buffer[i]][j];
-        if(bilen%8) //align to block(8 bit)
-            outputbuffer[bilen/8]<<=(bilen%8);
+            for (char j = 0; j < codemap[buffer[i]].size(); ++j, ++bilen)
+                outputbuffer[bilen / 8] = outputbuffer[bilen / 8] << 1 + codemap[buffer[i]][j];
+        if (bilen % 8) //align to block(8 bit)
+            outputbuffer[bilen / 8] <<= (8 - bilen % 8);
         //output margin
         out.seekp(0, out.beg);
-        cout<<bilen%8;
+        cout << 8 - bilen % 8;
     }
     else //decompress mode
     {
         ifstream in(InFilePath, ios::in | ios::binary);
         if (!in)
             Throw("Cannot Open File");
+        //read basic data
         in.seekg(0, in.end);
         size_t FileSize = in.tellg();
         in.seekg(0, in.beg);
         char *buffer = new char[FileSize];
         in.read(buffer, FileSize);
+        //read and create huffman tree
+        const char margin = buffer[0], treesize = buffer[1];
+        char hufflen, huffcode;
+        size_t p = 2;
+        Huff_D *root = new Huff_D, *t;
+        for (char i = 0; i < treesize; ++i)
+        {
+            t = root;
+            for (hufflen = buffer[p++]; hufflen > 0; hufflen -= 8)
+            {
+                huffcode = buffer[p++];
+                for (int j = hufflen > 8 ? 7 : hufflen - 1; j >= 0; --j)
+                    if ((huffcode >> j) % 2)
+                    {
+                        if (!t->rchild)
+                            t->rchild = new Huff_D;
+                        t = t->rchild;
+                    }
+                    else
+                    {
+                        if (!t->lchild)
+                            t->lchild = new Huff_D;
+                        t = t->lchild;
+                    }
+            }
+            t->code = buffer[p++];
+        }
+        //read compressed data, uncompress and put to file
+        t = root;
+        char *outputbuffer = new char[BUFF_SIZE], codepos = 7;
+        ofstream out(OutFilePath, ios::out | ios::binary | ios::app);
+        size_t bufferpos = 0;
+        while (p < FileSize)
+        {
+            huffcode = buffer[p++];
+            for (codepos = 7; codepos >= (margin && p == FileSize - 1) ? margin : 0; --codepos)
+            {
+                if ((huffcode >> codepos) % 2)
+                {
+                    if (t->rchild)
+                        t = t->rchild;
+                    else
+                    {
+                        outputbuffer[bufferpos++] = t->code;
+                        t = root->rchild;
+                        if (bufferpos == BUFF_SIZE)
+                        {
+                            bufferpos = 0;
+                            out << outputbuffer;
+                        }
+                    }
+                }
+                else
+                {
+                    if (t->lchild)
+                        t = t->lchild;
+                    else
+                    {
+                        outputbuffer[bufferpos++] = t->code;
+                        t = root->lchild;
+                        if (bufferpos == BUFF_SIZE)
+                        {
+                            bufferpos = 0;
+                            out << outputbuffer;
+                        }
+                    }
+                }
+            }
+        }
+        out.write(outputbuffer, bufferpos - 1);
     }
     return 0;
 }
