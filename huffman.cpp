@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 #include <queue>
-#define BUFF_SIZE 2000
+#define BUFF_SIZE 20
 using namespace std;
 //Huffman tree node
 struct Huff
@@ -193,13 +193,17 @@ int main(int argc, char **argv)
         size_t FileSize = in.tellg(); //ignore last and first node(align/treesize)
         char align;
         in.read(&align, 1); //read align size at last char
+        if(!in or align>7)
+            Throw("File Corrupted");
         in.seekg(0, in.beg);
         char *buffer = new char[BUFF_SIZE](), treesize, hufflen;
         //create huffman tree
         Huff_D *root = new Huff_D, *t;
         in.read(&treesize, 1);
+        if(!in)
+            Throw("File Corrupted");
         unsigned pos = 0;                //position in buffer
-        for (; treesize > 0; --treesize) //read huffman tree
+        for (; treesize > 0; --treesize) //read &create huffman tree
         {
             t = root;
             if (!(pos % BUFF_SIZE))
@@ -246,13 +250,15 @@ int main(int argc, char **argv)
                 if (t->code) //reach leaf node
                 {
                     outputbuffer[outputpos++ % BUFF_SIZE] = t->code;
-                    if (!(outputpos % BUFF_SIZE))
+                    if (!(outputpos % BUFF_SIZE)) //buffer full, write to file
                         out.write(outputbuffer, BUFF_SIZE);
                     t = root;
                 }
             }
         }
-        out.write(outputbuffer, outputpos % BUFF_SIZE);
+        if(t!=root)
+            Throw("File Corrupted");
+        out.write(outputbuffer, outputpos % BUFF_SIZE); //clean buffer
     }
     return 0;
 }
