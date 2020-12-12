@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 #include <queue>
-#define BUFF_SIZE 20000
+#define BUFF_SIZE 2000
 using namespace std;
 //Huffman tree node
 struct Huff
@@ -120,7 +120,7 @@ int main(int argc, char **argv)
         size_t *Times = new size_t[256]();
         for (size_t i = 0; i < FileSize; ++i)
         {
-            if (!i % BUFF_SIZE) //read new buffer block
+            if (!(i % BUFF_SIZE)) //read new buffer block
                 in.read(buffer, BUFF_SIZE);
             Times[buffer[i % BUFF_SIZE]]++;
         }
@@ -165,10 +165,11 @@ int main(int argc, char **argv)
         //output compressed bitstream
         size_t bilen = 0;
         char *outputbuffer = new char[BUFF_SIZE]();
-        in.seekg(0, in.beg); //move pointer to file head
+        in.close();
+        in.open(InFilePath, ios::in | ios::binary); //reopen file
         for (size_t i = 0; i < FileSize; ++i)
         {
-            if (!i % BUFF_SIZE) //read new buffer block
+            if (!(i % BUFF_SIZE)) //read new buffer block
                 in.read(buffer, BUFF_SIZE);
             for (bool c : codemap[buffer[i % BUFF_SIZE]])
             {
@@ -189,23 +190,23 @@ int main(int argc, char **argv)
             Throw("Cannot Open File");
         //read file
         in.seekg(-1, in.end);
+        size_t FileSize = in.tellg(); //ignore last and first node(align/treesize)
         char align;
         in.read(&align, 1); //read align size at last char
-        size_t FileSize = in.tellg();
         in.seekg(0, in.beg);
         char *buffer = new char[BUFF_SIZE](), treesize, hufflen;
         //create huffman tree
         Huff_D *root = new Huff_D, *t;
         in.read(&treesize, 1);
-        unsigned pos = 0; //position in buffer
-        for (; treesize > 0; --treesize)
+        unsigned pos = 0;                //position in buffer
+        for (; treesize > 0; --treesize) //read huffman tree
         {
             t = root;
-            if (!pos % BUFF_SIZE)
+            if (!(pos % BUFF_SIZE))
                 in.read(buffer, BUFF_SIZE);
             for (hufflen = buffer[(pos++) % BUFF_SIZE]; hufflen > 0; hufflen -= 8)
             {
-                if (!pos % BUFF_SIZE)
+                if (!(pos % BUFF_SIZE))
                     in.read(buffer, BUFF_SIZE);
                 for (int j = hufflen > 8 ? 7 : hufflen - 1; j >= 0; --j)
                 {
@@ -224,7 +225,7 @@ int main(int argc, char **argv)
                 }
                 ++pos;
             }
-            if (!pos % BUFF_SIZE)
+            if (!(pos % BUFF_SIZE))
                 in.read(buffer, BUFF_SIZE);
             t->code = buffer[(pos++) % BUFF_SIZE];
         }
@@ -234,7 +235,7 @@ int main(int argc, char **argv)
         unsigned outputpos = 0;
         for (t = root; pos < FileSize - 1; ++pos)
         {
-            if (!pos % BUFF_SIZE)
+            if (!(pos % BUFF_SIZE))
                 in.read(buffer, BUFF_SIZE);
             for (int j = (pos == FileSize - 2) ? 7 - align : 7; j >= 0; --j) //note align for last node
             {
@@ -245,9 +246,9 @@ int main(int argc, char **argv)
                 if (t->code) //reach leaf node
                 {
                     outputbuffer[outputpos++ % BUFF_SIZE] = t->code;
-                    if (!outputpos % BUFF_SIZE)
+                    if (!(outputpos % BUFF_SIZE))
                         out.write(outputbuffer, BUFF_SIZE);
-                    t=root;
+                    t = root;
                 }
             }
         }
