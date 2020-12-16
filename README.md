@@ -57,7 +57,7 @@ __Header Structure__:
 		<th>source code</th>
     </tr>
 	<tr>
-        <th>n-1(8bit)</th>
+        <th>n-1 (8bit)</th>
         <th>m(8bit)</th>
         <th>8bit</th>
         <th>8bit</th>
