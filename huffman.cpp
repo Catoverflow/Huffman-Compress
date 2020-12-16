@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 #include <queue>
-#define BUFF_SIZE 20
+#define BUFF_SIZE 2000
 using namespace std;
 //Huffman tree node
 struct Huff
