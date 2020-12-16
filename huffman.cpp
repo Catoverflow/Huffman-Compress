@@ -9,23 +9,23 @@ using namespace std;
 struct Huff
 {
     size_t weight{0};
-    char code;
+    char code; //code: 0~255
     Huff *lchild{nullptr}, *rchild{nullptr};
 };
 //Huffman tree node for decoding
 struct Huff_D
 {
     Huff_D *lchild{nullptr}, *rchild{nullptr};
-    char code{0};
+    char code; //code: -128~127c
 };
 //Append HuffTree to Standard I/O, and get codemap[source]=huffcode
 void OutputHuffTree(ostream &out, Huff *root, vector<bool> &path, vector<vector<bool>> &codemap)
 {
     if (!root->lchild and !root->rchild) //leaf node
     {
-        codemap[root->code] = path;
+        codemap[root->code + 128] = path;
         out << char(path.size());
-        char code = 0;
+        unsigned char code = 0;
         int ind = 0;
         for (bool c : path)
         {
@@ -122,7 +122,7 @@ int main(int argc, char **argv)
         {
             if (!(i % BUFF_SIZE)) //read new buffer block
                 in.read(buffer, BUFF_SIZE);
-            Times[buffer[i % BUFF_SIZE]]++;
+            Times[buffer[i % BUFF_SIZE] + 128]++; //char: -128~127 +128 -> 0~255
         }
         //construct huffman tree
         struct cmp //use ascending priority queue
@@ -135,11 +135,11 @@ int main(int argc, char **argv)
             {
                 Huff *p = new Huff;
                 p->weight = Times[i];
-                p->code = i;
+                p->code = i - 128;
                 NodeList.push(p);
             }
         ofstream out(OutFilePath, ios::out | ios::binary);
-        out << char(NodeList.size()); //output treesize to head part
+        out << char(NodeList.size() - 1); //output treesize to head part, -1 for 256->255
         while (NodeList.size() > 1)
         {
             Huff *p, *t;
@@ -155,7 +155,6 @@ int main(int argc, char **argv)
         }
         Huff *root = NodeList.top();
         //output huffman tree
-        char hufflen = 0;
         vector<vector<bool>> codemap;
         vector<bool> path;
         codemap.resize(256);
@@ -171,7 +170,7 @@ int main(int argc, char **argv)
         {
             if (!(i % BUFF_SIZE)) //read new buffer block
                 in.read(buffer, BUFF_SIZE);
-            for (bool c : codemap[buffer[i % BUFF_SIZE]])
+            for (bool c : codemap[buffer[i % BUFF_SIZE] + 128])
             {
                 outputbuffer[(bilen / 8) % BUFF_SIZE] = (outputbuffer[(bilen / 8) % BUFF_SIZE] << 1) + c;
                 if (!(++bilen % (BUFF_SIZE * 8))) //buffer full, write to file
@@ -193,17 +192,16 @@ int main(int argc, char **argv)
         size_t FileSize = in.tellg(); //ignore last and first node(align/treesize)
         char align;
         in.read(&align, 1); //read align size at last char
-        if(!in or align>7)
+        if (!in or align > 7)
             Throw("File Corrupted");
         in.seekg(0, in.beg);
-        char *buffer = new char[BUFF_SIZE](), treesize, hufflen;
+        char *buffer = new char[BUFF_SIZE](), hufflen;
         //create huffman tree
         Huff_D *root = new Huff_D, *t;
-        in.read(&treesize, 1);
-        if(!in)
+        if (!in)
             Throw("File Corrupted");
-        unsigned pos = 0;                //position in buffer
-        for (; treesize > 0; --treesize) //read &create huffman tree
+        unsigned treesize = in.get() + 1, pos = 0; //position in buffer
+        for (; treesize > 0; --treesize)           //read &create huffman tree
         {
             t = root;
             if (!(pos % BUFF_SIZE))
@@ -247,7 +245,7 @@ int main(int argc, char **argv)
                     t = t->rchild;
                 else
                     t = t->lchild;
-                if (t->code) //reach leaf node
+                if (!t->lchild and !t->rchild) //reach leaf node
                 {
                     outputbuffer[outputpos++ % BUFF_SIZE] = t->code;
                     if (!(outputpos % BUFF_SIZE)) //buffer full, write to file
@@ -256,7 +254,7 @@ int main(int argc, char **argv)
                 }
             }
         }
-        if(t!=root)
+        if (t != root)
             Throw("File Corrupted");
         out.write(outputbuffer, outputpos % BUFF_SIZE); //clean buffer
     }
