@@ -33,7 +33,6 @@ __File Structure__:
     <th style="text-align:center">Data</th>
 </table>
 
-
 __Header Structure__:
 
 <table>
@@ -71,7 +70,6 @@ __Header Structure__:
     </tr>
 </table>
 
-
 __Data Structure__:
 
 <table>
@@ -89,8 +87,6 @@ __Data Structure__:
         <th>a(8bit)</th>
     </tr>
 </table>
-
-
 
 ## Acknowledgement
 
