@@ -1,6 +1,5 @@
 # Huffman Compression
 
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/f39f4a6e47a4427ab60ac9e2bc8f50e0)](https://app.codacy.com/gh/Catoverflow/Huffman-Compress?utm_source=github.com&utm_medium=referral&utm_content=Catoverflow/Huffman-Compress&utm_campaign=Badge_Grade_Settings)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/7b7936f3577240518c4969ffaac42ae9)](https://www.codacy.com/gh/Catoverflow/Huffman-Compress/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Catoverflow/Huffman-Compress&amp;utm_campaign=Badge_Grade)
 
 ## Usage
