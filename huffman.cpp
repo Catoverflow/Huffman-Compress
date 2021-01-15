@@ -56,7 +56,7 @@ void OutputHuffTree(ostream &out, Huff *root, vector<bool> &path, vector<vector<
     }
 }
 //Print error and exit with code 1
-void Throw(string Error)
+void Throw(const string &Error)
 {
     cerr << "\033[31mERROR: \033[0m" << Error << endl; //[red]ERROR: [/red]
     exit(1);
