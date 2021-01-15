@@ -1,5 +1,7 @@
 # Huffman Compression
 
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/7b7936f3577240518c4969ffaac42ae9)](https://www.codacy.com/gh/Catoverflow/Huffman-Compress/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Catoverflow/Huffman-Compress&amp;utm_campaign=Badge_Grade)
+
 ## Usage
 
 `huffman [options] source [target]`
